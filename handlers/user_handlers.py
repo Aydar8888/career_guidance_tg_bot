@@ -41,7 +41,7 @@ async def process_no_answer(message: Message):
 @router.message(F.text == (LEXICON_RU['test1']))
 async def test1(message: Message):
     if users_db[message.from_user.id]['state'] == True:
-        await message.answer(text=LEXICON_RU['no'])
+        await message.answer(text=LEXICON_RU['test1_description'])
 
 
 
