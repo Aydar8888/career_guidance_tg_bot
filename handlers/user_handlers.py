@@ -1,94 +1,75 @@
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
-from keyboards.keyboards import *
+from keyboards.keyboards import yes_no_kb, test_choice_kb, create_question_kb
 from lexicon.lexicon_ru import LEXICON_RU
-from lexicon.questions import question
+from lexicon.questions import all_tests
 from database.database import user_dict_template, users_db
 from copy import deepcopy
 
 
 router = Router()
 
-
-# Этот хэндлер срабатывает на команду /start
+# Обработчик команды /start
 @router.message(CommandStart())
 async def process_start_command(message: Message):
     await message.answer(text=LEXICON_RU['/start'], reply_markup=yes_no_kb)
     if message.from_user.id not in users_db:
         users_db[message.from_user.id] = deepcopy(user_dict_template)
 
-
-# Этот хэндлер срабатывает на команду /help
-@router.message(Command(commands='help'))
-async def process_help_command(message: Message):
-    await message.answer(text=LEXICON_RU['/help'], reply_markup=yes_no_kb)
-
-
-# Этот хэндлер срабатывает на согласие пользователя играть в игру
+# Обработчик согласия на участие в тесте
 @router.message(F.text == LEXICON_RU['yes_button'])
 async def process_yes_answer(message: Message):
-    await message.answer(text=LEXICON_RU['yes'], reply_markup=game_kb)
-    
+    await message.answer(text=LEXICON_RU['yes'], reply_markup=test_choice_kb)
 
-
-# Этот хэндлер срабатывает на отказ пользователя играть в игру
-@router.message(F.text == LEXICON_RU['no_button'])
-async def process_no_answer(message: Message):
-    await message.answer(text=LEXICON_RU['no'])
-    
-
-
-@router.message(F.text == (LEXICON_RU['test1']))
-async def test1(message: Message):
-    await message.answer(text=LEXICON_RU['test1_description'], reply_markup=start_back_kb)
-
-user_answers = {}
-@router.message(F.text == (LEXICON_RU['start_test']))
-async def start_test1(message: Message):
+# Обработчик выбора теста
+@router.message(F.text.in_([LEXICON_RU['test1'], LEXICON_RU['test2']]))
+async def process_test_selection(message: Message):
+    selected_test = message.text
+    users_db[message.from_user.id]['selected_test'] = selected_test
     users_db[message.from_user.id]['state'] = True
-    await send_question(1, Message)
+    users_db[message.from_user.id]['question_number'] = 1
 
-# Функция для отправки вопросов с кнопками
-async def send_question(question_number, message):
-    if question_number > len(questions):
+    # Очищаем ответы для выбранного теста, если пользователь проходит его заново
+    users_db[message.from_user.id]['answers'][selected_test] = []
+    
+    await send_question(message)
+
+# Функция для отправки вопроса
+async def send_question(message: Message):
+    user_data = users_db[message.from_user.id]
+    selected_test = user_data['selected_test']
+    question_number = user_data['question_number']
+    
+    # Проверяем, не закончен ли тест
+    if question_number > len(all_tests[selected_test]):
+        user_data['state'] = False
+        await message.answer(text=LEXICON_RU['end_test'])
+        print(users_db[message.from_user.id])
         return
 
-    question_text = f"Вопрос {question_number}: {questions[question_number][0]} или {questions[question_number][1]}?"
-
-    # Создаем клавиатуру с кнопками для вариантов ответов
-    keyboard_builder = ReplyKeyboardBuilder()
-    keyboard_builder.button(text=questions[question_number][0])
-    keyboard_builder.button(text=questions[question_number][1])
-    keyboard_builder.adjust(1)
-
-    # Отправляем вопрос и клавиатуру
-    await message.answer(text=question_text, reply_markup=keyboard_builder)
+    # Получаем текст вопроса и клавиатуру с вариантами ответа
+    question_text = "Что вы предпочтете?"
+    options = all_tests[selected_test][question_number]
+    question_kb = create_question_kb(options)
+    
+    await message.answer(text=question_text, reply_markup=question_kb)
 
 # Обработчик для ответов на вопросы
-@router.message(F.text.in_([option for options in questions.values() for option in options]))
-async def handle_answer(message: Message):
-    user_id = message.from_user.id
-    question_number = len(user_answers[user_id]) + 1
+@router.message(F.text.in_([option for test in all_tests.values() for options in test.values() for option in options]))
+async def handle_question_answer(message: Message):
+    user_data = users_db[message.from_user.id]
+    selected_test = user_data['selected_test']
+    if not user_data['state']:
+        await message.answer("Пожалуйста, начните тест сначала с командой /start.")
+        return
 
-    # Сохраняем ответ пользователя
-    user_answers[user_id].append(message.text)
+    # Сохраняем ответ пользователя в список ответов для текущего теста
+    user_data['answers'][selected_test].append(message.text)
+    user_data['question_number'] += 1
+    await send_question(message)
 
-    # Отправляем следующий вопрос
-    await send_question(user_id, question_number + 1)
-
-
-
-@router.message(F.text == (LEXICON_RU['back']))
-async def back(message: Message):
-    await message.answer(reply_markup=game_kb)
-
-
-
-
-# async def process_game_button(message: Message):
-#     bot_choice = get_bot_choice()
-#     await message.answer(text=f'{LEXICON_RU["bot_choice"]} '
-#                               f'- {LEXICON_RU[bot_choice]}')
-#     winner = get_winner(message.text, bot_choice)
-#     await message.answer(text=LEXICON_RU[winner], reply_markup=yes_no_kb)
+# Обработчик отказа от теста
+@router.message(F.text == LEXICON_RU['no_button'])
+async def process_no_answer(message: Message):
+    await message.answer(text=LEXICON_RU['no'], reply_markup=yes_no_kb)
