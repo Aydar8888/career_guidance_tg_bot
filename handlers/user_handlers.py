@@ -1,7 +1,7 @@
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
-from keyboards.keyboards import game_kb, yes_no_kb, start_back_kb, my_keyboard
+from keyboards.keyboards import *
 from lexicon.lexicon_ru import LEXICON_RU
 from lexicon.questions import question
 from database.database import user_dict_template, users_db
@@ -43,13 +43,40 @@ async def process_no_answer(message: Message):
 async def test1(message: Message):
     await message.answer(text=LEXICON_RU['test1_description'], reply_markup=start_back_kb)
 
+user_answers = {}
 @router.message(F.text == (LEXICON_RU['start_test']))
 async def start_test1(message: Message):
     users_db[message.from_user.id]['state'] = True
-    await message.answer(text=question['const_question'])
-    await message.answer(reply_markup=my_keyboard)
-    
-        
+    await send_question(1, Message)
+
+# Функция для отправки вопросов с кнопками
+async def send_question(question_number, message):
+    if question_number > len(questions):
+        return
+
+    question_text = f"Вопрос {question_number}: {questions[question_number][0]} или {questions[question_number][1]}?"
+
+    # Создаем клавиатуру с кнопками для вариантов ответов
+    keyboard_builder = ReplyKeyboardBuilder()
+    keyboard_builder.button(text=questions[question_number][0])
+    keyboard_builder.button(text=questions[question_number][1])
+    keyboard_builder.adjust(1)
+
+    # Отправляем вопрос и клавиатуру
+    await message.answer(text=question_text, reply_markup=keyboard_builder)
+
+# Обработчик для ответов на вопросы
+@router.message(F.text.in_([option for options in questions.values() for option in options]))
+async def handle_answer(message: Message):
+    user_id = message.from_user.id
+    question_number = len(user_answers[user_id]) + 1
+
+    # Сохраняем ответ пользователя
+    user_answers[user_id].append(message.text)
+
+    # Отправляем следующий вопрос
+    await send_question(user_id, question_number + 1)
+
 
 
 @router.message(F.text == (LEXICON_RU['back']))
