@@ -3,7 +3,9 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 from keyboards.keyboards import game_kb, yes_no_kb
 from lexicon.lexicon_ru import LEXICON_RU
-from services.services import get_bot_choice, get_winner
+from database.database import user_dict_template, users_db
+from copy import deepcopy
+
 
 router = Router()
 
@@ -12,6 +14,8 @@ router = Router()
 @router.message(CommandStart())
 async def process_start_command(message: Message):
     await message.answer(text=LEXICON_RU['/start'], reply_markup=yes_no_kb)
+    if message.from_user.id not in users_db:
+        users_db[message.from_user.id] = deepcopy(user_dict_template)
 
 
 # Этот хэндлер срабатывает на команду /help
@@ -24,18 +28,20 @@ async def process_help_command(message: Message):
 @router.message(F.text == LEXICON_RU['yes_button'])
 async def process_yes_answer(message: Message):
     await message.answer(text=LEXICON_RU['yes'], reply_markup=game_kb)
+    users_db[message.from_user.id]['state'] = True
 
 
 # Этот хэндлер срабатывает на отказ пользователя играть в игру
 @router.message(F.text == LEXICON_RU['no_button'])
 async def process_no_answer(message: Message):
     await message.answer(text=LEXICON_RU['no'])
+    users_db[message.from_user.id]['state'] = False
 
 
-# Этот хэндлер срабатывает на любую из игровых кнопок
 @router.message(F.text == (LEXICON_RU['test1']))
 async def test1(message: Message):
-    await message.answer(text=LEXICON_RU['no'])
+    if users_db[message.from_user.id]['state'] == True:
+        await message.answer(text=LEXICON_RU['no'])
 
 
 
