@@ -28,6 +28,15 @@ button_1 = KeyboardButton(text=LEXICON_RU['test1'])
 button_2 = KeyboardButton(text=LEXICON_RU['test2'])
 button_3 = KeyboardButton(text=LEXICON_RU['test3'])
 
+start_test = KeyboardButton(text=LEXICON_RU['start_test'])
+back = KeyboardButton(text=LEXICON_RU['back'])
+
+start_back_kb = ReplyKeyboardMarkup(
+    keyboard=[[start_test],
+              [back]],
+    resize_keyboard=True
+)
+
 game_kb = ReplyKeyboardMarkup(
     keyboard=[[button_1],
               [button_2],
