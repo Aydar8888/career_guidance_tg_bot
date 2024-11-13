@@ -10,7 +10,7 @@ from copy import deepcopy
 
 router = Router()
 
-# Обработчик команды /start
+
 @router.message(CommandStart())
 async def process_start_command(message: Message):
     await message.answer(text=LEXICON_RU['/start'], reply_markup=yes_no_kb)

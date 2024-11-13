@@ -13,7 +13,7 @@ yes_no_kb = ReplyKeyboardMarkup(
 # Клавиатура для выбора теста (например, тест 1 и тест 2)
 test_choice_kb = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="Тест 1")],
+        [KeyboardButton(text="Тест Климова (ДДО)")],
         [KeyboardButton(text="Тест 2")]
     ],
     resize_keyboard=True, 
